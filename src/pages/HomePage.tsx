@@ -1,12 +1,17 @@
+// src/pages/HomePage.tsx
+import { useAuth } from "../contexts/AuthContext";
 import LogoutButton from "../components/LogoutButton";
 
-const HomePage = () => {
+function HomePage() {
+  const { username } = useAuth();
+
   return (
     <div>
-      <h1>메인 페이지</h1>
+      <h1>Welcome, {username || "..."}</h1>{" "}
+      {/* 아직 username이 없으면 ... 출력 */}
       <LogoutButton />
     </div>
   );
-};
+}
 
 export default HomePage;

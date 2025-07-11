@@ -1,35 +1,34 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom"; // 페이지 이동을 위한 훅
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext"; // ✅ 추가
 
 const LoginPage = () => {
-  const navigate = useNavigate(); // 페이지 이동 함수
-  const [username, setUsername] = useState("");
+  const navigate = useNavigate();
+  const { setUsername } = useAuth(); // ✅ 추가
+
+  const [username, setUsernameInput] = useState(""); // ✅ 이름 변경: 내부 상태와 구분
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  // 폼 제출 시 실행되는 함수
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); // 폼 기본 제출 동작 막기
+    e.preventDefault();
 
     try {
-      // 백엔드로 로그인 요청 보내기
       const response = await axios.post("http://localhost:8080/login", {
         username,
         password,
       });
 
-      // 응답에서 accessToken, refreshToken 꺼내기
       localStorage.setItem("accessToken", response.data.accessToken);
       localStorage.setItem("refreshToken", response.data.refreshToken);
+      localStorage.setItem("username", username); // ✅ 저장해두기
 
-      // 에러 초기화
+      setUsername(username); // ✅ 전역 context에 username 저장
       setError("");
 
-      // 메인 페이지로 이동
       navigate("/");
     } catch (err: any) {
-      // 로그인 실패 시 에러 메시지 표시
       setError("로그인 실패: 아이디 또는 비밀번호를 확인하세요");
     }
   };
@@ -43,7 +42,7 @@ const LoginPage = () => {
           <input
             type="text"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => setUsernameInput(e.target.value)} // ✅ 이름 변경
             required
           />
         </div>
@@ -56,7 +55,6 @@ const LoginPage = () => {
             required
           />
         </div>
-        {/* 에러가 있을 경우 메시지 표시 */}
         {error && <p style={{ color: "red" }}>{error}</p>}
         <button type="submit">로그인</button>
       </form>
