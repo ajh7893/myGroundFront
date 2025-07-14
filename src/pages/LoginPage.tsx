@@ -1,6 +1,6 @@
 // src/pages/LoginPage.tsx
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../api/axios"; // 수정: axios 대신 api 인스턴스 사용
 import { useNavigate } from "react-router-dom";
 
 const LoginPage = () => {
@@ -13,7 +13,8 @@ const LoginPage = () => {
     e.preventDefault();
 
     try {
-      const response = await axios.post("http://localhost:8080/login", {
+      // 수정: api 인스턴스 사용 및 URL 경로 간소화
+      const response = await api.post("/login", {
         username,
         password,
       });
