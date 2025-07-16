@@ -1,46 +1,74 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import LogoutButton from "../components/LogoutButton";
-
-// To-Do 항목을 위한 타입 정의
-interface Todo {
-  id: number;
-  text: string;
-  completed: boolean;
-}
+import type { Todo } from "../api/todoApi";
+import {
+  getTodos,
+  addTodo,
+  toggleTodo,
+  deleteTodo,
+} from "../api/todoApi";
 
 function HomePage() {
   const { username, email } = useAuth();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [newTodo, setNewTodo] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // 새로운 할 일 추가 핸들러
-  const handleAddTodo = (e: React.FormEvent) => {
+  useEffect(() => {
+    const fetchTodos = async () => {
+      try {
+        setLoading(true);
+        const fetchedTodos = await getTodos();
+        setTodos(fetchedTodos);
+        setError(null);
+      } catch (err) {
+        setError("할 일 목록을 불러오는데 실패했습니다.");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTodos();
+  }, []);
+
+  const handleAddTodo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTodo.trim()) return;
 
-    const newTodoItem: Todo = {
-      id: Date.now(),
-      text: newTodo,
-      completed: false,
-    };
-
-    setTodos([...todos, newTodoItem]);
-    setNewTodo("");
+    try {
+      const newTodoItem = await addTodo(newTodo);
+      setTodos([...todos, newTodoItem]);
+      setNewTodo("");
+    } catch (err) {
+      setError("할 일을 추가하는데 실패했습니다.");
+      console.error(err);
+    }
   };
 
-  // 할 일 완료/미완료 토글 핸들러
-  const handleToggleTodo = (id: number) => {
-    setTodos(
-      todos.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
-      )
-    );
+  const handleToggleTodo = async (id: number) => {
+    try {
+      const updatedTodo = await toggleTodo(id);
+      setTodos(
+        todos.map((todo) => (todo.id === id ? updatedTodo : todo))
+      );
+    } catch (err) {
+      setError("할 일 상태를 변경하는데 실패했습니다.");
+      console.error(err);
+    }
   };
 
-  // 할 일 삭제 핸들러
-  const handleDeleteTodo = (id: number) => {
-    setTodos(todos.filter((todo) => todo.id !== id));
+  const handleDeleteTodo = async (id: number) => {
+    try {
+      await deleteTodo(id);
+      setTodos(todos.filter((todo) => todo.id !== id));
+    } catch (err) {
+      setError("할 일을 삭제하는데 실패했습니다.");
+      console.error(err);
+    }
   };
 
   return (
@@ -51,11 +79,11 @@ function HomePage() {
       </header>
 
       <main style={styles.main}>
-        {/* 사용자 프로필 카드 */}
+        {/* 게시판 바로가기 카드 */}
         <div style={styles.card}>
-          <h3 style={styles.cardTitle}>프로필</h3>
-          <p><strong>이름:</strong> {username || "..."}</p>
-          <p><strong>이메일:</strong> {email || "..."}</p>
+          <h3 style={styles.cardTitle}>게시판</h3>
+          <p>다른 사용자들과 소통해보세요.</p>
+          <Link to="/boards" style={styles.linkButton}>게시판으로 이동</Link>
         </div>
 
         {/* 할 일 목록 카드 */}
@@ -68,32 +96,49 @@ function HomePage() {
               onChange={(e) => setNewTodo(e.target.value)}
               placeholder="새로운 할 일을 입력하세요"
               style={styles.todoInput}
+              disabled={loading}
             />
-            <button type="submit" style={styles.todoButton}>
-              추가
+            <button type="submit" style={styles.todoButton} disabled={loading}>
+              {loading ? "추가 중..." : "추가"}
             </button>
           </form>
-          <ul style={styles.todoList}>
-            {todos.map((todo) => (
-              <li
-                key={todo.id}
-                style={{
-                  ...styles.todoItem,
-                  textDecoration: todo.completed ? "line-through" : "none",
-                }}
-              >
-                <span onClick={() => handleToggleTodo(todo.id)} style={{ cursor: "pointer" }}>
-                  {todo.text}
-                </span>
-                <button
-                  onClick={() => handleDeleteTodo(todo.id)}
-                  style={styles.deleteButton}
+
+          {error && <p style={{ color: "red" }}>{error}</p>}
+
+          {loading && !error && <p>로딩 중...</p>}
+
+          {!loading && !error && todos.length === 0 && (
+            <p>오늘의 할 일이 없습니다. 새로운 할 일을 추가해보세요!</p>
+          )}
+
+          {!loading && todos.length > 0 && (
+            <ul style={styles.todoList}>
+              {todos.map((todo) => (
+                <li
+                  key={todo.id}
+                  style={{
+                    ...styles.todoItem,
+                    textDecoration: todo.completed ? "line-through" : "none",
+                    color: todo.completed ? "#888" : "#333",
+                  }}
                 >
-                  삭제
-                </button>
-              </li>
-            ))}
-          </ul>
+                  <span
+                    onClick={() => handleToggleTodo(todo.id)}
+                    style={{ cursor: "pointer", flexGrow: 1 }}
+                  >
+                    {todo.text}
+                  </span>
+                  <button
+                    onClick={() => handleDeleteTodo(todo.id)}
+                    style={styles.deleteButton}
+                    disabled={loading}
+                  >
+                    삭제
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </main>
     </div>
@@ -162,6 +207,15 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: "center",
     padding: "0.5rem 0",
     borderBottom: "1px solid #eee",
+  },
+  linkButton: {
+    display: "inline-block",
+    marginTop: "1rem",
+    padding: "0.5rem 1rem",
+    background: "#28a745",
+    color: "#fff",
+    textDecoration: "none",
+    borderRadius: "4px",
   },
   deleteButton: {
     background: "#dc3545",
